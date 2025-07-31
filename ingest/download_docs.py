@@ -1,91 +1,115 @@
 """
-Download Godot documentation from GitHub
+Download pre-built Godot HTML documentation from nightly builds
+Much faster and more reliable than parsing reStructuredText
 """
 
 import os
-import subprocess
 import logging
+import requests
+import zipfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 
-def download_godot_docs(
-    target_dir="data/raw/godot-docs",
-    branch="4.4",
-    repo_url="https://github.com/godotengine/godot-docs.git"
+def download_godot_html_docs(
+    target_dir="data/raw/godot-docs-html",
+    version="stable"
 ) -> bool:
     """
-    Download Godot documentation from GitHub
+    Download pre-built Godot HTML documentation
     
     Args:
-        target_dir: Directory to clone the docs into
-        branch: Git branch to checkout
-        repo_url: Repository URL
+        target_dir: Directory to extract the docs into
+        version: Version to download ('stable', 'latest', '3.6')
     
     Returns:
         bool: True if successful, False otherwise
     """
+    
+    # URLs for different versions
+    urls = {
+        "stable": "https://nightly.link/godotengine/godot-docs/workflows/build_offline_docs/master/godot-docs-html-stable.zip",
+        "latest": "https://nightly.link/godotengine/godot-docs/workflows/build_offline_docs/master/godot-docs-html-latest.zip", 
+        "3.6": "https://nightly.link/godotengine/godot-docs/workflows/build_offline_docs/3.6/godot-docs-html-stable.zip"
+    }
+    
+    if version not in urls:
+        logger.error(f"Unknown version: {version}. Available: {list(urls.keys())}")
+        return False
+    
+    url = urls[version]
+    target_path = Path(target_dir)
+    zip_path = target_path.parent / f"godot-docs-{version}.zip"
+    
     try:
-        target_path = Path(target_dir)
-        
-        # Create parent directory
+        # Create target directory
         target_path.parent.mkdir(parents=True, exist_ok=True)
         
-        if target_path.exists():
-            logger.info("Godot docs already exist. Pulling latest changes...")
-            # Pull latest changes
-            result = subprocess.run(
-                ["git", "pull", "origin", branch],
-                cwd=target_path,
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode != 0:
-                logger.warning(f"Git pull failed: {result.stderr}")
-                # Try to re-clone
-                logger.info("Attempting to re-clone repository...")
-                subprocess.run(["rm", "-rf", str(target_path)], check=True)
-                return download_godot_docs(target_dir, branch, repo_url)
-        else:
-            logger.info("Cloning Godot docs repository...")
-            result = subprocess.run(
-                ["git", "clone", repo_url, str(target_path)],
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode != 0:
-                logger.error(f"Git clone failed: {result.stderr}")
-                return False
+        # Check if docs already exist
+        if target_path.exists() and any(target_path.iterdir()):
+            logger.info(f"Godot {version} docs already exist at {target_path}")
+            return True
         
-        # Checkout specific branch
-        logger.info(f"Checking out branch: {branch}")
-        result = subprocess.run(
-            ["git", "checkout", branch],
-            cwd=target_path,
-            capture_output=True,
-            text=True
-        )
+        logger.info(f"Downloading Godot {version} HTML documentation...")
+        logger.info(f"URL: {url}")
         
-        if result.returncode != 0:
-            logger.error(f"Git checkout failed: {result.stderr}")
+        # Download the ZIP file
+        response = requests.get(url, stream=True, timeout=300)
+        response.raise_for_status()
+        
+        total_size = int(response.headers.get('content-length', 0))
+        downloaded = 0
+        
+        with open(zip_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    
+                    # Show progress for large downloads
+                    if total_size > 0:
+                        progress = (downloaded / total_size) * 100
+                        print(f"\rDownloading... {progress:.1f}%", end='', flush=True)
+        
+        print()  # New line after progress
+        logger.info(f"✅ Downloaded {downloaded} bytes")
+        
+        # Extract the ZIP file
+        logger.info("Extracting documentation...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(target_path)
+        
+        # Clean up ZIP file
+        zip_path.unlink()
+        
+        # Verify extraction
+        html_files = list(target_path.rglob("*.html"))
+        if not html_files:
+            logger.error("No HTML files found after extraction")
             return False
         
-        # Verify docs were downloaded
-        conf_py = target_path / "conf.py"
-        if not conf_py.exists():
-            logger.error(f"conf.py not found in {target_path}")
-            return False
-        
-        logger.info(f"✅ Godot documentation downloaded successfully to {target_path}")
+        logger.info(f"✅ Extracted {len(html_files)} HTML files to {target_path}")
         return True
         
+    except requests.RequestException as e:
+        logger.error(f"❌ Failed to download documentation: {e}")
+        return False
+    except zipfile.BadZipFile as e:
+        logger.error(f"❌ Failed to extract ZIP file: {e}")
+        if zip_path.exists():
+            zip_path.unlink()
+        return False
     except Exception as e:
-        logger.error(f"❌ Failed to download Godot docs: {e}")
+        logger.error(f"❌ Unexpected error: {e}")
         return False
 
 
 if __name__ == "__main__":
-    download_godot_docs()
+    # Test the download
+    import sys
+    version = sys.argv[1] if len(sys.argv) > 1 else "stable"
+    success = download_godot_html_docs(version=version)
+    if not success:
+        sys.exit(1)

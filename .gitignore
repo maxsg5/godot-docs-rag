@@ -45,6 +45,11 @@ data/**/*.qa.json
 *.tar
 *.pid
 
+# Indexing pipeline output (but keep source code)
+indexing_pipeline/output/
+indexing_pipeline/venv/
+indexing_pipeline/*.log
+
 # Misc
 *.bak
 *.swp

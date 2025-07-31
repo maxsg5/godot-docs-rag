@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from ingest.download_docs import download_godot_docs
-from ingest.parse_docs import GodotDocsParser
+from ingest.download_docs import download_godot_html_docs
+from ingest.parse_docs import GodotHTMLProcessor
 from chunk.llm_provider import LLMProvider
 from chunk.chunker import DocumentChunker
 
@@ -64,21 +64,21 @@ def run_pipeline():
             sys.exit(1)
         
         # Step 1: Download documentation
-        logger.info("📥 Step 1: Downloading Godot documentation...")
-        download_success = download_godot_docs()
+        logger.info("📥 Step 1: Downloading Godot HTML documentation...")
+        download_success = download_godot_html_docs()
         if not download_success:
             logger.error("❌ Failed to download documentation")
             sys.exit(1)
         
-        # Step 2: Parse documentation
-        logger.info("🔧 Step 2: Parsing documentation with Sphinx...")
-        parser = GodotDocsParser()
-        if not parser.validate_source():
+        # Step 2: Process HTML documentation
+        logger.info("🔧 Step 2: Processing HTML documentation...")
+        processor = GodotHTMLProcessor()
+        if not processor.validate_source():
             sys.exit(1)
         
-        parser.setup_directories()
-        if not parser.build_docs():
-            logger.error("❌ Failed to parse documentation")
+        processor.setup_directories()
+        if not processor.process_files():
+            logger.error("❌ Failed to process documentation")
             sys.exit(1)
         
         # Step 3: Initialize LLM provider

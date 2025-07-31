@@ -27,10 +27,13 @@ class DocumentChunker:
         self.input_dir = Path(input_dir)
         self.output_dir = Path(output_dir)
         
-        # HTML to text converter
+        # HTML to text converter with better settings for Godot docs
         self.h = html2text.HTML2Text()
         self.h.ignore_links = False
         self.h.ignore_images = True
+        self.h.ignore_emphasis = False
+        self.h.body_width = 0  # Don't wrap lines
+        self.h.unicode_snob = True  # Better Unicode handling
         
         logger.info(f"DocumentChunker initialized with {type(llm_provider).__name__}")
     
@@ -40,19 +43,39 @@ class DocumentChunker:
         logger.info(f"Output directory ready: {self.output_dir}")
     
     def extract_text_from_html(self, html_content: str) -> str:
-        """Convert HTML to clean markdown text"""
+        """Convert HTML to clean markdown text optimized for Godot docs"""
         try:
             # Use BeautifulSoup to clean up HTML
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Remove navigation and footer elements
+            # Remove unnecessary elements (already cleaned in processing, but double-check)
             for element in soup.find_all(['nav', 'footer', 'aside', 'script', 'style']):
                 element.decompose()
             
-            # Convert to markdown
-            markdown_text = self.h.handle(str(soup))
+            # Find the main content area
+            main_content = (
+                soup.find('div', class_='document') or 
+                soup.find('main') or 
+                soup.find('article') or
+                soup.find('div', class_='body') or
+                soup
+            )
             
-            return markdown_text.strip()
+            # Convert to markdown
+            markdown_text = self.h.handle(str(main_content))
+            
+            # Clean up the markdown text
+            lines = markdown_text.split('\n')
+            cleaned_lines = []
+            
+            for line in lines:
+                line = line.strip()
+                # Skip empty lines and navigation artifacts
+                if line and not line.startswith('¶') and len(line) > 1:
+                    cleaned_lines.append(line)
+            
+            return '\n'.join(cleaned_lines)
+            
         except Exception as e:
             logger.error(f"Error extracting text from HTML: {e}")
             return ""
