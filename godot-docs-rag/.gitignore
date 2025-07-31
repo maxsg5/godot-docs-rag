@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+env/
+*.log
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sphinx build
+data/parsed/html/
+data/parsed/doctrees/
+
+# Output data
+data/chunks/
+data/parsed/
+data/raw/godot-docs/
+data/**/*.qa.json
+*.qa.json
+*.chunk.json
+
+# Secrets
+.env
+.env.*
+
+# Docker
+*.container
+*.tar
+*.pid
+
+# Misc
+*.bak
+*.swp
+*.tmp

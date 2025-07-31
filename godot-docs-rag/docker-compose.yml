@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  godot-docs-rag:
+    build: .
+    container_name: godot-docs-rag
+    volumes:
+      - ./.env:/app/.env
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
