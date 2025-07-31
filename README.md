@@ -1,4 +1,4 @@
-# 🔍 Godot D## 🎯 Features
+# 🔍 Godot Docs RAG Assistant 🎯 Features
 
 - ✅ **Dual LLM Support**: OpenAI API or local Ollama models
 - ✅ **Fully Dockerized**: One-command setup with Docker Compose
