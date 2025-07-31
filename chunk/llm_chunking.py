@@ -1,6 +1,6 @@
 """
-LLM-based chunking and Q&A extraction for Godot documentation
-Uses local LLMs via Ollama for generating structured Q&A pairs
+Legacy LLM chunking script - kept for backward compatibility
+For the new Docker-based pipeline, see src/main.py and chunk/chunker.py
 """
 
 import os

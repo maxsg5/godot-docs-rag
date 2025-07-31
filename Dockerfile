@@ -6,6 +6,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
+    curl \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -20,7 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Make scripts executable
-RUN chmod +x scripts/setup.sh ingest/download_docs.sh
+RUN chmod +x scripts/*.sh ingest/*.sh
 
 # Create data directories
 RUN mkdir -p data/raw data/parsed data/chunks
@@ -29,5 +30,5 @@ RUN mkdir -p data/raw data/parsed data/chunks
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Default command
-CMD ["bash", "scripts/setup.sh"]
+# Default command runs the main pipeline
+CMD ["python", "-m", "src.main"]

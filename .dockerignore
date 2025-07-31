@@ -1,0 +1,80 @@
+# Docker ignore file for Godot Docs RAG
+# Exclude unnecessary files from Docker build context
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Data directories (will be mounted as volumes)
+data/raw/
+data/parsed/
+data/chunks/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Scripts (not needed in container)
+scripts/
+!scripts/docker-setup.sh
+
+# Test files
+test_*
+*_test.py
+tests/
+
+# Temporary files
+*.tmp
+*.bak
+*.log
