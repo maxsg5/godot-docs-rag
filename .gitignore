@@ -31,7 +31,7 @@ data/parsed/doctrees/
 # Output data
 data/chunks/
 data/parsed/
-data/raw/godot-docs/
+data/raw/
 data/**/*.qa.json
 *.qa.json
 *.chunk.json
