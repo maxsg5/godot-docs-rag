@@ -1,0 +1,6 @@
+unstructured
+requests
+tqdm
+langchain
+langchain-community
+beautifulsoup4
