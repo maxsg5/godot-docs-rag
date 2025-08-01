@@ -1,11 +1,12 @@
 """
-Main entry point for Godot Docs RAG Pipeline
-Supports both OpenAI API and local LLM (Ollama) providers
+Main entry point for the Godot RAG System
+Orchestrates system initialization and startup with comprehensive features
 """
 
-import os
-import sys
+import asyncio
 import logging
+import sys
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -13,10 +14,143 @@ from dotenv import load_dotenv
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from ingest.download_docs import download_godot_html_docs
-from ingest.parse_docs import GodotHTMLProcessor
-from chunk.llm_provider import LLMProvider
-from chunk.chunker import DocumentChunker
+# Load environment variables
+load_dotenv()
+
+from src.config import RAGConfig
+from src.rag_system import ComprehensiveRAGSystem
+from src.monitoring import MetricsCollector
+from src.data_processor import DocumentProcessor
+
+# Legacy imports for backward compatibility
+from legacy.ingest.download_docs import download_godot_html_docs
+from legacy.ingest.parse_docs import GodotHTMLProcessor
+from legacy.chunk.llm_provider import LLMProvider
+from legacy.chunk.chunker import DocumentChunker
+
+
+async def main():
+    """Main entry point for the comprehensive RAG system"""
+    # Setup logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    logger = logging.getLogger("godot_rag.main")
+    logger.info("🚀 Starting Godot RAG System...")
+    
+    try:
+        # Initialize configuration
+        config = RAGConfig()
+        
+        # Initialize components
+        logger.info("📊 Initializing metrics collector...")
+        metrics_collector = MetricsCollector(config.data_dir)
+        metrics_collector.start_background_collection()
+        
+        logger.info("🔄 Initializing data processor...")
+        data_processor = DocumentProcessor(config.data_dir)
+        
+        logger.info("🤖 Initializing RAG system...")
+        rag_system = ComprehensiveRAGSystem(config)
+        
+        # Initialize RAG system
+        await rag_system.initialize()
+        
+        if rag_system.is_ready():
+            logger.info("✅ Godot RAG System is ready!")
+            
+            # Example query for testing
+            test_query = "How do I create a 2D player character in Godot?"
+            logger.info(f"🔍 Testing with query: {test_query}")
+            
+            result = await rag_system.answer_question(test_query)
+            
+            logger.info("📝 Test result:")
+            logger.info(f"Answer: {result['answer'][:200]}...")
+            logger.info(f"Processing time: {result['processing_time']:.2f}s")
+            logger.info(f"Retrieved documents: {result['num_documents']}")
+            
+            # Record test metrics
+            metrics_collector.record_query(result, success=True)
+            
+        else:
+            logger.error("❌ RAG system failed to initialize properly")
+            return 1
+            
+    except Exception as e:
+        logger.error(f"❌ System startup failed: {e}")
+        return 1
+    
+    logger.info("✅ System startup completed successfully")
+    return 0
+
+
+def legacy_main():
+    """Legacy main function for backward compatibility"""
+    logger = logging.getLogger("godot_rag.legacy")
+    logger.info("🔄 Running legacy pipeline...")
+    
+    try:
+        # Load environment variables
+        load_dotenv()
+        
+        # Create data directories
+        data_dir = Path('data')
+        raw_dir = data_dir / 'raw'
+        parsed_dir = data_dir / 'parsed' / 'html'
+        chunks_dir = data_dir / 'chunks'
+        
+        for dir_path in [raw_dir, parsed_dir, chunks_dir]:
+            dir_path.mkdir(parents=True, exist_ok=True)
+        
+        # Download and parse documents
+        logger.info("📥 Downloading Godot documentation...")
+        success = download_godot_html_docs(str(raw_dir))
+        
+        if success:
+            logger.info("✅ Documentation downloaded successfully")
+            
+            # Parse HTML documents
+            logger.info("🔄 Parsing HTML documents...")
+            processor = GodotHTMLProcessor(str(raw_dir), str(parsed_dir))
+            processed_count = processor.process_all()
+            
+            logger.info(f"✅ Processed {processed_count} HTML files")
+            
+            # Initialize LLM provider
+            logger.info("🤖 Initializing LLM provider...")
+            llm_provider = LLMProvider()
+            
+            # Chunk documents
+            logger.info("📄 Chunking documents...")
+            chunker = DocumentChunker(llm_provider)
+            result = chunker.process_directory(str(parsed_dir), str(chunks_dir))
+            
+            if result:
+                logger.info("✅ Legacy pipeline completed successfully")
+                return 0
+            else:
+                logger.error("❌ Chunking failed")
+                return 1
+        else:
+            logger.error("❌ Failed to download documentation")
+            return 1
+            
+    except Exception as e:
+        logger.error(f"❌ Legacy pipeline failed: {e}")
+        return 1
+
+
+if __name__ == "__main__":
+    # Check if we should run legacy mode
+    if "--legacy" in sys.argv:
+        exit_code = legacy_main()
+    else:
+        exit_code = asyncio.run(main())
+    
+    sys.exit(exit_code)
 
 # Load environment variables
 load_dotenv()

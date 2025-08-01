@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Tuple
 from bs4 import BeautifulSoup
 import html2text
 
-from chunk.llm_provider import BaseLLMProvider
+from legacy.chunk.llm_provider import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
 

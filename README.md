@@ -103,18 +103,18 @@ git clone https://github.com/maxsg5/godot-docs-rag.git
 cd godot-docs-rag
 
 # 2. Download and parse HTML documentation
-chmod +x ingest/download_docs.sh
-./ingest/download_docs.sh
-python ingest/parse_docs.py
+chmod +x legacy/ingest/download_docs.sh
+./legacy/ingest/download_docs.sh
+python legacy/ingest/parse_docs.py
 
 # 3. Run indexing pipeline (offline processing)
-cd indexing_pipeline
+cd legacy/indexing_pipeline
 ./setup.sh
-python indexer.py --input ../data/parsed/html --output ./output
+python indexer.py --input ../../data/parsed/html --output ./output
 python qa_generator.py --input ./output/vector_store --output ./output/qa_pairs
 
 # 4. Setup main RAG system
-cd ..
+cd ../..
 cp .env.example .env
 # Edit .env - configure your LLM provider (OpenAI or Ollama)
 
@@ -140,31 +140,37 @@ docker-compose run --rm godot-docs-rag
 
 ## 📁 Project Structure
 
-```text
+```
 godot-docs-rag/
-├── 📂 indexing_pipeline/            # Offline indexing (LangChain-based)
-│   ├── indexer.py                   # Document loading and embedding
-│   ├── qa_generator.py              # Q&A pair generation
-│   ├── setup.sh                     # Environment setup
-│   ├── requirements.txt             # Pipeline dependencies
-│   ├── test_pipeline.py             # Comprehensive test suite
-│   └── output/                      # Generated embeddings and Q&A
-├── 📂 ingest/                       # Raw data processing
-│   ├── download_docs.sh             # Godot docs downloader
-│   └── parse_docs.py                # HTML parser with progress tracking
-├── 📂 chunk/                        # Legacy chunking pipeline
-│   ├── llm_chunking.py              # Original LLM-based chunking
-│   └── llm_chunking_simple.py       # Simplified chunking logic
-├── 📂 data/                         # All data artifacts
-│   ├── 📂 raw/                      # Downloaded documentation
-│   ├── 📂 parsed/html/              # Parsed HTML files
-│   └── 📂 chunks/                   # Legacy Q&A pairs
-├── 📂 scripts/                      # Utility scripts
-│   ├── test_local_llm.py            # LLM testing utilities
-│   └── validate.sh                  # System validation
-├── docker-compose.yml               # Multi-service Docker config
-├── Dockerfile                       # Main application container
-└── .env.example                     # Environment template
+├── src/                      # Core application code
+│   ├── app.py               # FastAPI REST API
+│   ├── config.py            # Configuration management
+│   ├── rag_system.py        # Main RAG implementation
+│   ├── monitoring.py        # Metrics and monitoring
+│   ├── data_processor.py    # Document processing pipeline
+│   └── main.py              # CLI interface
+├── ui/                      # User interfaces
+│   └── streamlit_app.py     # Web interface
+├── deployment/              # Docker and deployment configs
+│   ├── docker-compose.yml   # Multi-service orchestration
+│   └── Dockerfile          # Multi-stage build
+├── scripts/                 # Setup and utility scripts
+│   ├── setup.sh            # Environment setup
+│   ├── start_dev.sh         # Development startup
+│   ├── start_ui.sh          # UI startup
+│   └── validate.sh          # System validation
+├── docs/                    # Documentation
+│   ├── FEATURES.md          # Feature documentation
+│   └── SCORING.md           # Scoring criteria
+├── legacy/                  # Legacy components
+│   ├── chunk/              # Old chunking logic
+│   ├── ingest/             # Data ingestion scripts
+│   └── indexing_pipeline/  # Old pipeline code
+├── data/                    # Data storage
+│   ├── raw/                # Raw documents
+│   ├── parsed/             # Processed documents
+│   └── chunks/             # Generated chunks
+└── requirements.txt         # Dependencies
 ```
 
 ---

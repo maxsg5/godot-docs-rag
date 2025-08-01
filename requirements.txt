@@ -1,14 +1,77 @@
-# Core dependencies
-beautifulsoup4>=4.12.0
-python-dotenv>=1.0.0
-requests>=2.31.0
-html2text>=2020.1.16
-click>=8.1.0
+# Core RAG Framework
+langchain>=0.1.0
+langchain-community>=0.0.20
+langchain-core>=0.1.23
+langchain-ollama>=0.1.0
+langchain-qdrant>=0.1.0
 
-# LLM support - both OpenAI and local options
-openai>=1.0.0
-ollama>=0.1.0
+# Vector Database
+qdrant-client>=1.7.0
+
+# Machine Learning and NLP
+scikit-learn>=1.3.0
+numpy>=1.24.0
+rank-bm25>=0.2.2
+
+# Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Web Interface
+streamlit>=1.28.0
+plotly>=5.17.0
+pandas>=2.0.0
+
+# HTTP and Web Processing
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+html2text>=2020.1.16
+
+# Data Processing
+pydantic>=2.4.0
+pydantic-settings>=2.0.0
+
+# System Monitoring
+psutil>=5.9.0
+prometheus-client>=0.19.0
+
+# Configuration and Environment
+python-dotenv>=1.0.0
+
+# Development and Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.6.0
 
 # Utilities
-pydantic>=2.0.0
+tqdm>=4.66.0
+colorama>=0.4.6
+click>=8.1.0
 typing-extensions>=4.5.0
+
+# LLM Support
+ollama>=0.1.0
+openai>=1.0.0
+
+# Optional: Enhanced text processing
+unstructured[local-inference]>=0.10.0
+
+# Optional: Advanced embeddings
+sentence-transformers>=2.2.0
+
+# Optional: GPU acceleration (uncomment if using CUDA)
+# torch>=2.0.0+cu118
+# torchvision>=0.15.0+cu118
+# torchaudio>=2.0.0+cu118
+
+# Optional: Alternative vector databases
+# chromadb>=0.4.0
+# pinecone-client>=2.2.0
+
+# Development convenience
+jupyter>=1.0.0
+notebook>=7.0.0
+ipywidgets>=8.0.0
