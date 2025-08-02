@@ -27,6 +27,8 @@ Thumbs.db
 # Sphinx build
 data/parsed/html/
 data/parsed/doctrees/
+data/processed
+data/chunked
 
 # Output data
 data/chunks/
