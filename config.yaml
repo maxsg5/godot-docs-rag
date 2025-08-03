@@ -1,0 +1,62 @@
+# Godot Documentation RAG Configuration
+
+# Document Loading Configuration
+document_loading:
+  method: "unstructured"  # Options: "unstructured", "bs4"
+
+# Embedding Configuration
+embedding:
+  model: "llama3"
+  base_url: "http://ollama:11434"  # Docker service name
+  gpu_enabled: true  # Enable GPU acceleration for Ollama
+  gpu_layers: -1     # Number of GPU layers (-1 for auto, 0 for CPU only)
+  batch_size: 5      # Further reduced batch size for better performance
+  show_progress: true # Show detailed progress during embedding
+  timeout: 300       # Timeout for individual embedding requests (5 minutes)
+
+# Vector Store Configuration
+vector_store:
+  type: "in_memory"  # Options: "in_memory", "chroma", "pinecone"
+  
+# Text Splitting Configuration
+text_splitting:
+  method: "html_semantic"  # Options: "html_header", "html_section", "html_semantic"
+  
+  # Common settings for all splitters
+  headers_to_split_on:
+    - ["h1", "Header 1"]
+    - ["h2", "Header 2"] 
+    - ["h3", "Header 3"]
+    - ["h4", "Header 4"]
+    - ["h5", "Header 5"]
+    - ["h6", "Header 6"]
+  
+  # HTMLHeaderTextSplitter specific settings
+  html_header:
+    return_each_element: false  # Set to true to return each element separately
+    
+  # HTMLSectionSplitter specific settings  
+  html_section:
+    xslt_path: null  # Path to custom XSLT file, null for default
+    
+  # HTMLSemanticPreservingSplitter specific settings
+  html_semantic:
+    max_chunk_size: 2000
+    chunk_overlap: 200
+    separators: ["\n\n", "\n", ". ", "! ", "? "]
+    preserve_images: true
+    preserve_videos: true
+    elements_to_preserve: ["table", "ul", "ol", "code", "pre"]
+    denylist_tags: ["script", "style", "head", "meta"]
+    
+# Secondary text splitting (for chunk size constraints)
+secondary_splitting:
+  enabled: true
+  chunk_size: 1000
+  chunk_overlap: 100
+  
+# Output settings  
+output:
+  save_splits: true
+  output_directory: "data/processed"
+  save_metadata: true

@@ -154,34 +154,6 @@ def analyze_documents(documents: List[Document], max_examples: int = 3):
         print(f"Content preview: {doc.page_content[:200]}...")
 
 
-def save_documents_summary(documents: List[Document], output_file: str = "godot_docs_summary.txt"):
-    """
-    Save a summary of all documents to a text file.
-    
-    Args:
-        documents (List[Document]): List of documents
-        output_file (str): Output file path
-    """
-    print(f"💾 Saving documents summary to: {output_file}")
-    
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(f"Godot Documentation Summary\n")
-        f.write(f"Generated from {len(documents)} HTML documents\n")
-        f.write("=" * 50 + "\n\n")
-        
-        for i, doc in enumerate(documents):
-            f.write(f"Document {i+1}:\n")
-            f.write(f"Source: {doc.metadata.get('source', 'Unknown')}\n")
-            if 'title' in doc.metadata:
-                f.write(f"Title: {doc.metadata['title']}\n")
-            f.write(f"Content length: {len(doc.page_content)} characters\n")
-            f.write("-" * 30 + "\n")
-            f.write(f"{doc.page_content}\n")
-            f.write("\n" + "=" * 50 + "\n\n")
-    
-    print(f"✅ Summary saved to: {output_file}")
-
-
 if __name__ == "__main__":
     print("🚀 Loading Godot Documentation with LangChain")
     print("=" * 50)
@@ -205,7 +177,7 @@ if __name__ == "__main__":
     
     # Optional: Test BeautifulSoup4 method (commented out for faster execution)
     # Uncomment the lines below to test BS4 method
-    """
+    
     print("\n2️⃣ Testing BeautifulSoup4 method:")
     method = "bs4"
     print(f"📚 Using loading method: {method}")
@@ -218,14 +190,11 @@ if __name__ == "__main__":
         sample_doc = documents_bs4[0] if documents_bs4 else None
         if sample_doc:
             print(f"📄 Sample document metadata: {list(sample_doc.metadata.keys())}")
-    """
+    
     
     # Analyze the loaded documents
     if documents_unstructured:
         analyze_documents(documents_unstructured)
-        
-        # Optionally save summary (uncomment if needed)
-        # save_documents_summary(documents_unstructured)
         
         print(f"\n🎉 Successfully processed Godot documentation!")
         print(f"📊 Total documents loaded: {len(documents_unstructured)}")

@@ -3,4 +3,9 @@ requests
 tqdm
 langchain
 langchain-community
+langchain-text-splitters
+langchain-ollama
 beautifulsoup4
+lxml
+pyyaml
+pickle-compat
