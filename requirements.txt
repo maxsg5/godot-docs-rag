@@ -9,3 +9,4 @@ beautifulsoup4
 lxml
 pyyaml
 pickle-compat
+qdrant-client[fastembed]>=1.14.2

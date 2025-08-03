@@ -9,13 +9,13 @@ def main():
         
         if success:
             print("sucess")
-            # Example search
-            print("\n🔍 Example search:")
-            results = pipeline.search_documents("How to create a scene in Godot?", k=3)
-            for i, doc in enumerate(results, 1):
-                print(f"\nResult {i}:")
-                print(f"Content: {doc.page_content[:200]}...")
-                print(f"Source: {doc.metadata.get('source', 'Unknown')}")
+            # # Example search
+            # print("\n🔍 Example search:")
+            # results = pipeline.search_documents("How to create a scene in Godot?", k=3)
+            # for i, doc in enumerate(results, 1):
+            #     print(f"\nResult {i}:")
+            #     print(f"Content: {doc.page_content[:200]}...")
+            #     print(f"Source: {doc.metadata.get('source', 'Unknown')}")
         else :
             print("womp")
             

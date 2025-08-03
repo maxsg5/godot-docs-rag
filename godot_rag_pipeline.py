@@ -1,3 +1,4 @@
+from http import client
 import os
 import sys
 import time
@@ -9,6 +10,8 @@ from typing import List, Dict, Any
 import yaml
 import requests
 from tqdm import tqdm
+from fastembed import TextEmbedding
+import json
 
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_ollama import OllamaEmbeddings
@@ -21,12 +24,15 @@ from langchain_text_splitters import (
     RecursiveCharacterTextSplitter
 )
 
+from qdrant_client import QdrantClient, models
+
 overall_start_time = time.time()
 
 class GodotRAGPipeline:
     def __init__(self, config_path: str = "config.yaml"):
         """Initialize the RAG pipeline with configuration"""
         self.config = self.load_config(config_path)
+        self._print_config()
         self.embeddings = None
         self.vector_store = None
         
@@ -41,6 +47,70 @@ class GodotRAGPipeline:
         except Exception as e:
             print(f"❌ Error loading configuration: {e}")
             sys.exit(1)
+    
+    def _print_config(self):
+        """Print configuration in a nicely formatted way"""
+        print("\n" + "=" * 60)
+        print("📋 GODOT RAG PIPELINE CONFIGURATION")
+        print("=" * 60)
+        
+        # Document Loading
+        print("\n📄 Document Loading:")
+        doc_config = self.config.get('document_loading', {})
+        print(f"   Method: {doc_config.get('method', 'unstructured')}")
+        
+        # Embedding Configuration
+        print("\n🤖 Embedding Configuration:")
+        embed_config = self.config.get('embedding', {})
+        print(f"   Model: {embed_config.get('model', 'llama3')}")
+        print(f"   Base URL: {embed_config.get('base_url', 'http://localhost:11434')}")
+        print(f"   GPU Enabled: {embed_config.get('gpu_enabled', True)}")
+        print(f"   GPU Layers: {embed_config.get('gpu_layers', -1)}")
+        print(f"   Batch Size: {embed_config.get('batch_size', 50)}")
+        print(f"   Show Progress: {embed_config.get('show_progress', True)}")
+        print(f"   Timeout: {embed_config.get('timeout', 300)}s")
+        
+        # Vector Store
+        print("\n🗃️  Vector Store:")
+        vector_config = self.config.get('vector_store', {})
+        print(f"   Type: {vector_config.get('type', 'in_memory')}")
+        
+        # Text Splitting
+        print("\n✂️  Text Splitting:")
+        split_config = self.config.get('text_splitting', {})
+        print(f"   Method: {split_config.get('method', 'html_semantic')}")
+        
+        # Show method-specific settings
+        method = split_config.get('method', 'html_semantic')
+        if method == 'html_semantic':
+            semantic_config = split_config.get('html_semantic', {})
+            print(f"   Max Chunk Size: {semantic_config.get('max_chunk_size', 2000)}")
+            print(f"   Chunk Overlap: {semantic_config.get('chunk_overlap', 200)}")
+            print(f"   Preserve Images: {semantic_config.get('preserve_images', True)}")
+            print(f"   Preserve Videos: {semantic_config.get('preserve_videos', True)}")
+        
+        # Headers to split on
+        headers = split_config.get('headers_to_split_on', [])
+        if headers:
+            print(f"   Headers to Split: {', '.join([h[0] for h in headers])}")
+        
+        # Secondary Splitting
+        print("\n🔄 Secondary Splitting:")
+        secondary_config = self.config.get('secondary_splitting', {})
+        enabled = secondary_config.get('enabled', True)
+        print(f"   Enabled: {enabled}")
+        if enabled:
+            print(f"   Chunk Size: {secondary_config.get('chunk_size', 1000)}")
+            print(f"   Chunk Overlap: {secondary_config.get('chunk_overlap', 100)}")
+        
+        # Output Settings
+        print("\n💾 Output Settings:")
+        output_config = self.config.get('output', {})
+        print(f"   Save Splits: {output_config.get('save_splits', False)}")
+        print(f"   Output Directory: {output_config.get('output_directory', 'data/processed')}")
+        print(f"   Save Metadata: {output_config.get('save_metadata', True)}")
+        
+        print("=" * 60 + "\n")
     
     def wait_for_ollama(self, base_url: str, max_retries: int = 30) -> bool:
         """Wait for Ollama service to be ready"""
@@ -58,6 +128,34 @@ class GodotRAGPipeline:
             time.sleep(2)
         
         print("❌ Ollama service failed to start")
+        return False
+    
+    def wait_for_qdrant(self, url: str, max_retries: int = 30):
+        """Wait for Qdrant to be ready"""
+        print("🔄 Waiting for Qdrant to be ready...")
+        
+        client = QdrantClient(url)
+        # Check if Qdrant is already running
+        try:
+            response = client.get_collections()
+            if response:
+                print("✅ Qdrant is already running!")
+                return True
+        except Exception as e:
+            print(f"⚠️ Error checking Qdrant status: {e}")
+       
+        try:
+            # List existing collections
+            collections = client.get_collections()
+            print(f"📁 Existing collections: {collections}")
+            
+            print(f"\n🌐 Qdrant Web UI available at: {qdrant_base_url}/dashboard")
+            
+        except Exception as e:
+            print(f"❌ Failed to connect to Qdrant: {e}")
+            print("💡 Make sure to run: docker run -d -p 6333:6333 -p 6334:6334 -v \"$(pwd)/qdrant_storage:/qdrant/storage:z\" --name qdrant qdrant/qdrant")
+
+        print("❌ Qdrant failed to start")
         return False
     
     def setup_ollama_model(self, base_url: str, model_name: str) -> bool:
@@ -100,37 +198,44 @@ class GodotRAGPipeline:
         """Initialize embeddings and vector store"""
         import traceback
         
+        qdrant_base_url = self.config.get('vector_store', {}).get('base_url',"")
+
         ollama_base_url = os.getenv("OLLAMA_BASE_URL", 
                                    self.config.get('embedding', {}).get('base_url', "http://localhost:11434"))
         model_name = self.config.get('embedding', {}).get('model', 'llama3')
         
         # Wait for Ollama and setup model
-        if not self.wait_for_ollama(ollama_base_url):
+        if not self.wait_for_ollama(ollama_base_url,5):
             return False
-            
+        
         if not self.setup_ollama_model(ollama_base_url, model_name):
             return False
         
-        # Initialize embeddings and vector store
-        try:
-            self.embeddings = OllamaEmbeddings(
-                model=model_name,
-                base_url=ollama_base_url
-            )
-            self.vector_store = InMemoryVectorStore(embedding=self.embeddings)
-            
-            # Test the embedding connection
-            print("🧪 Testing embedding connection...")
-            test_text = "This is a test sentence for embedding."
-            test_embedding = self.embeddings.embed_query(test_text)
-            print(f"✅ Embedding test successful! Vector size: {len(test_embedding)}")
-            
-            print("✅ Components initialized successfully!")
-            return True
-        except Exception as e:
-            print(f"❌ Error initializing components: {e}")
-            print(f"📋 Full error details: {traceback.format_exc()}")
+        if not self.wait_for_qdrant(qdrant_base_url,5):
             return False
+        
+        print("✅ Components initialized successfully!")
+        return True
+        # Initialize embeddings and vector store
+        # try:
+        #     self.embeddings = OllamaEmbeddings(
+        #         model=model_name,
+        #         base_url=ollama_base_url
+        #     )
+        #     self.vector_store = InMemoryVectorStore(embedding=self.embeddings)
+            
+        #     # Test the embedding connection
+        #     print("🧪 Testing embedding connection...")
+        #     test_text = "This is a test sentence for embedding."
+        #     test_embedding = self.embeddings.embed_query(test_text)
+        #     print(f"✅ Embedding test successful! Vector size: {len(test_embedding)}")
+            
+        #     print("✅ Components initialized successfully!")
+        #     return True
+        # except Exception as e:
+        #     print(f"❌ Error initializing components: {e}")
+        #     print(f"📋 Full error details: {traceback.format_exc()}")
+        #     return False
     
     def download_and_extract(self) -> bool:
         """Download and extract Godot documentation"""
@@ -174,6 +279,64 @@ class GodotRAGPipeline:
                     loader = UnstructuredHTMLLoader(file_path)
                 elif method.lower() == "bs4":
                     loader = BSHTMLLoader(file_path)
+                elif method.lower() == "fastembed":
+                    
+                    
+                    
+                    
+                    EMBEDDING_MODEL = "jinaai/jina-embeddings-v2-small-en"
+                    EMBEDDING_DIMENSIONS = 512
+                    COLLECTION_NAME = "godot-docs-optimized"
+                    
+                    
+                    
+                    
+                    print(f"\\n🎯 Selected model: {EMBEDDING_MODEL}")
+                    print(f"📐 Dimensions: {EMBEDDING_DIMENSIONS}")
+                    
+                    try:
+                        client = QdrantClient(self.config.get('vector_store', {}).get('base_url', "http://localhost:6333"))
+                        # Delete existing collection if exists
+                        try:
+                            client.delete_collection(COLLECTION_NAME)
+                            print(f"🗑️ Deleted existing collection: {COLLECTION_NAME}")
+                        except:
+                            pass  # Collection doesn't exist
+    
+                    
+                        # Create new collection
+                        client.create_collection(
+                            collection_name=COLLECTION_NAME,
+                            vectors_config=models.VectorParams(
+                                size=EMBEDDING_DIMENSIONS,
+                                distance=models.Distance.COSINE  # Best for semantic similarity
+                            )
+                        )
+                    
+                        print(f"✅ Created collection: {COLLECTION_NAME}")
+                        # Create payload indexes for efficient filtering
+                        indexes_to_create = [
+                            ("section", "keyword"),
+                            ("chunk_type", "keyword"), 
+                            ("difficulty", "keyword"),
+                            ("keywords", "keyword")
+                        ]
+
+                        for field_name, field_type in indexes_to_create:
+                            try:
+                                client.create_payload_index(
+                                    collection_name=COLLECTION_NAME,
+                                    field_name=field_name,
+                                    field_schema=field_type
+                                )
+                                print(f"📊 Created index for: {field_name}")
+                            except Exception as e:
+                                print(f"⚠️ Index creation warning for {field_name}: {e}")
+    
+                        print("\\n🎉 Collection setup complete!")
+                    #loader = FastEmbedLoader(file_path)
+                    except Exception as e:
+                        print(f"❌ Error creating collection: {e}")
                 else:
                     print(f"❌ Unknown loading method: {method}")
                     continue
@@ -444,23 +607,23 @@ class GodotRAGPipeline:
         if not documents:
             return False
         
-        # Step 4: Split documents
-        splits = self.split_documents(documents)
-        if not splits:
-            return False
+        # # Step 4: Split documents
+        # splits = self.split_documents(documents)
+        # if not splits:
+        #     return False
         
-        # Step 5: Embed and store documents
-        if not self.embed_and_store_documents(splits):
-            return False
+        # # Step 5: Embed and store documents
+        # if not self.embed_and_store_documents(splits):
+        #     return False
         
-        # # Step 6: Save pipeline state
-        if self.config.get('output', {}).get('save_splits', False):
-            output_dir = self.config.get('output', {}).get('output_directory', 'data/processed')
-            self.save_pipeline_state(splits, output_dir)
+        # # # Step 6: Save pipeline state
+        # if self.config.get('output', {}).get('save_splits', False):
+        #     output_dir = self.config.get('output', {}).get('output_directory', 'data/processed')
+        #     self.save_pipeline_state(splits, output_dir)
         
         print("=" * 50)
         print("✅ Pipeline completed successfully!")
-        print(f"📊 Total documents processed: {len(splits)}")
+        # print(f"📊 Total documents processed: {len(splits)}")
         print("🔍 You can now search documents using search_documents(query)")
         
         return True

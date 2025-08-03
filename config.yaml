@@ -2,12 +2,11 @@
 
 # Document Loading Configuration
 document_loading:
-  method: "unstructured"  # Options: "unstructured", "bs4"
-
+  method: "fastembed"  # Options: "unstructured", "bs4", "fastembed"
 # Embedding Configuration
 embedding:
   model: "llama3"
-  base_url: "http://ollama:11434"  # Docker service name
+  base_url: "http://localhost:11434"  # Docker service name
   gpu_enabled: true  # Enable GPU acceleration for Ollama
   gpu_layers: -1     # Number of GPU layers (-1 for auto, 0 for CPU only)
   batch_size: 5      # Further reduced batch size for better performance
@@ -16,7 +15,8 @@ embedding:
 
 # Vector Store Configuration
 vector_store:
-  type: "in_memory"  # Options: "in_memory", "chroma", "pinecone"
+  base_url: "http://localhost:6333"  # Docker service name
+  # Options: "in_memory", "chroma", "pinecone"
   
 # Text Splitting Configuration
 text_splitting:
