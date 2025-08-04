@@ -35,30 +35,30 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
-  # RAG Pipeline Service - optimized for Godot documentation processing
-  # app:
-  #   build: .
-  #   container_name: godot_docs_rag_app
-  #   ports:
-  #     - '8000:8000'
-  #   volumes:
-  #     - .:/app
-  #     - ./data:/app/data # Persistent data storage
-  #   environment:
-  #     - CONFIG_PATH=/app/config.yaml
-  #     - OLLAMA_BASE_URL=http://ollama:11434
-  #     - PYTHONPATH=/app
-  #     - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
-  #   depends_on:
-  #     ollama:
-  #       condition: service_healthy # Wait for Ollama to be ready
-  #   restart: unless-stopped
-  #   command: >
-  #     sh -c "
-  #       echo 'Waiting for models to be ready...' &&
-  #       sleep 30 &&
-  #       python godot_rag_pipeline.py
-  #     "
+  # RAG Pipeline Service - runs complete pipeline with evaluation
+  rag-app:
+    build: .
+    container_name: godot_rag_app
+    volumes:
+      - .:/app
+      - ./data:/app/data # Persistent data storage
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - PYTHONPATH=/app
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+    depends_on:
+      ollama:
+        condition: service_healthy # Wait for Ollama to be ready
+    restart: "no" # Don't restart automatically for one-time evaluation run
+    command: >
+      sh -c "
+        echo '🚀 Starting Godot RAG Pipeline + Evaluation in Docker...' &&
+        echo '⏳ Waiting for Ollama to be fully ready...' &&
+        sleep 45 &&
+        echo '📊 Running complete pipeline with evaluation...' &&
+        python pipeline_and_evaluation.py
+      "
 
 volumes:
   ollama-data:

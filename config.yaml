@@ -7,7 +7,7 @@ document_loading:
 # Embedding Configuration
 embedding:
   model: "nomic-embed-text"  # Optimized for code/documentation embedding
-  base_url: "http://localhost:11434"  # Docker service name
+  base_url: "http://ollama:11434"  # Docker service name for container networking
   gpu_enabled: true  # Enable GPU acceleration for Ollama
   gpu_layers: -1     # Number of GPU layers (-1 for auto, 0 for CPU only)
   batch_size: 10     # Increased for better throughput with nomic-embed
@@ -17,7 +17,7 @@ embedding:
 # LLM Configuration for Generation
 llm:
   model: "llama3"  # Language model for generating responses
-  base_url: "http://localhost:11434"  # Same Ollama instance
+  base_url: "http://ollama:11434"  # Docker service name for container networking
   temperature: 0.1  # Low temperature for more consistent, factual responses
   max_tokens: 1000  # Maximum response length
   timeout: 120      # Timeout for generation requests (2 minutes)
