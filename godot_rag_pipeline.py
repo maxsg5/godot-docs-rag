@@ -11,7 +11,7 @@ import requests
 from tqdm import tqdm
 
 from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings, OllamaLLM
 from langchain.schema import Document
 from langchain_community.document_loaders import UnstructuredHTMLLoader, BSHTMLLoader
 from langchain_text_splitters import (
@@ -20,6 +20,8 @@ from langchain_text_splitters import (
     HTMLSemanticPreservingSplitter,
     RecursiveCharacterTextSplitter
 )
+from langchain.chains import RetrievalQA
+from langchain.prompts import PromptTemplate
 
 overall_start_time = time.time()
 
@@ -29,6 +31,8 @@ class GodotRAGPipeline:
         self.config = self.load_config(config_path)
         self.embeddings = None
         self.vector_store = None
+        self.llm = None
+        self.qa_chain = None
         
     def load_config(self, config_path: str) -> Dict[str, Any]:
         """Load configuration from YAML file"""
@@ -97,33 +101,51 @@ class GodotRAGPipeline:
             return False
     
     def initialize_components(self):
-        """Initialize embeddings and vector store"""
+        """Initialize embeddings, vector store, LLM, and QA chain"""
         import traceback
         
         ollama_base_url = os.getenv("OLLAMA_BASE_URL", 
                                    self.config.get('embedding', {}).get('base_url', "http://localhost:11434"))
-        model_name = self.config.get('embedding', {}).get('model', 'llama3')
+        embedding_model = self.config.get('embedding', {}).get('model', 'nomic-embed-text')
+        llm_model = self.config.get('llm', {}).get('model', 'llama3')
         
-        # Wait for Ollama and setup model
+        # Wait for Ollama and setup models
         if not self.wait_for_ollama(ollama_base_url):
             return False
             
-        if not self.setup_ollama_model(ollama_base_url, model_name):
+        if not self.setup_ollama_model(ollama_base_url, embedding_model):
+            return False
+            
+        if not self.setup_ollama_model(ollama_base_url, llm_model):
             return False
         
         # Initialize embeddings and vector store
         try:
             self.embeddings = OllamaEmbeddings(
-                model=model_name,
+                model=embedding_model,
                 base_url=ollama_base_url
             )
             self.vector_store = InMemoryVectorStore(embedding=self.embeddings)
+            
+            # Initialize LLM
+            llm_config = self.config.get('llm', {})
+            self.llm = OllamaLLM(
+                model=llm_model,
+                base_url=ollama_base_url,
+                temperature=llm_config.get('temperature', 0.1),
+                timeout=llm_config.get('timeout', 120)
+            )
             
             # Test the embedding connection
             print("🧪 Testing embedding connection...")
             test_text = "This is a test sentence for embedding."
             test_embedding = self.embeddings.embed_query(test_text)
             print(f"✅ Embedding test successful! Vector size: {len(test_embedding)}")
+            
+            # Test LLM connection
+            print("🧪 Testing LLM connection...")
+            test_response = self.llm.invoke("Hello, this is a test. Please respond briefly.")
+            print(f"✅ LLM test successful! Response: {test_response[:100]}...")
             
             print("✅ Components initialized successfully!")
             return True
@@ -416,6 +438,95 @@ class GodotRAGPipeline:
             print(f"❌ Error searching documents: {e}")
             return []
     
+    def setup_qa_chain(self):
+        """Setup the QA chain for RAG generation"""
+        if not self.vector_store or not self.llm:
+            print("❌ Vector store or LLM not initialized")
+            return False
+        
+        try:
+            # Create a custom prompt template for Godot documentation
+            prompt_template = """You are a helpful Godot Engine expert assistant. Use the following pieces of context from the official Godot documentation to answer the question. 
+
+If you don't know the answer based on the provided context, just say that you don't know, don't try to make up an answer.
+
+Be specific and provide step-by-step instructions when possible. Include relevant code examples if they appear in the context.
+
+Context:
+{context}
+
+Question: {question}
+
+Helpful Answer:"""
+
+            PROMPT = PromptTemplate(
+                template=prompt_template,
+                input_variables=["context", "question"]
+            )
+
+            # Create the QA chain
+            self.qa_chain = RetrievalQA.from_chain_type(
+                llm=self.llm,
+                chain_type="stuff",
+                retriever=self.vector_store.as_retriever(
+                    search_kwargs={"k": 5}  # Retrieve top 5 documents
+                ),
+                chain_type_kwargs={"prompt": PROMPT},
+                return_source_documents=True
+            )
+            
+            print("✅ QA chain initialized successfully!")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error setting up QA chain: {e}")
+            return False
+    
+    def generate_answer(self, question: str) -> Dict[str, Any]:
+        """Generate an answer using RAG (Retrieval-Augmented Generation)"""
+        if not self.qa_chain:
+            print("❌ QA chain not initialized. Setting up...")
+            if not self.setup_qa_chain():
+                return {
+                    "answer": "❌ Error: QA system not available",
+                    "source_documents": [],
+                    "error": "QA chain initialization failed"
+                }
+        
+        try:
+            print(f"🤔 Generating answer for: {question}")
+            
+            # Get the response from the QA chain
+            response = self.qa_chain.invoke({"query": question})
+            
+            # Extract answer and sources
+            answer = response.get("result", "No answer generated")
+            source_documents = response.get("source_documents", [])
+            
+            # Format sources for display
+            sources = []
+            for doc in source_documents:
+                source_info = {
+                    "content": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
+                    "source": doc.metadata.get("source", "Unknown"),
+                    "full_content": doc.page_content
+                }
+                sources.append(source_info)
+            
+            return {
+                "answer": answer,
+                "source_documents": sources,
+                "question": question
+            }
+            
+        except Exception as e:
+            print(f"❌ Error generating answer: {e}")
+            return {
+                "answer": f"❌ Error generating answer: {str(e)}",
+                "source_documents": [],
+                "error": str(e)
+            }
+    
     def save_pipeline_state(self, documents: List[Document], output_dir: str = "data/processed"):
         """Save pipeline state for later use"""
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -463,4 +574,67 @@ class GodotRAGPipeline:
         print(f"📊 Total documents processed: {len(splits)}")
         print("🔍 You can now search documents using search_documents(query)")
         
+        # Setup QA chain for generation
+        print("\n🔗 Setting up QA chain for RAG generation...")
+        if self.setup_qa_chain():
+            # Test RAG generation
+            print("\n🤖 Testing RAG generation with sample question...")
+            test_answer = self.generate_answer("How do I create a scene in Godot?")
+            print(f"\n📝 Generated Answer:\n{test_answer['answer']}")
+            
+            if test_answer['source_documents']:
+                print(f"\n📚 Used {len(test_answer['source_documents'])} source documents")
+                print("📖 Source previews:")
+                for i, source in enumerate(test_answer['source_documents'][:2], 1):
+                    print(f"  {i}. {source['content']}")
+        
+        print("\n🎉 RAG Pipeline with LLM generation ready!")
         return True
+
+    def ask_question(self, question: str) -> None:
+        """Ask a question and get a generated answer with sources"""
+        if not self.qa_chain:
+            print("❌ QA chain not initialized. Please run the pipeline first.")
+            return
+        
+        print(f"\n❓ Question: {question}")
+        print("-" * 50)
+        
+        result = self.generate_answer(question)
+        
+        print(f"🤖 Answer:\n{result['answer']}")
+        
+        if result.get('source_documents'):
+            print(f"\n📚 Sources ({len(result['source_documents'])} documents):")
+            for i, source in enumerate(result['source_documents'], 1):
+                print(f"\n{i}. Source: {source['source']}")
+                print(f"   Content: {source['content']}")
+
+
+if __name__ == "__main__":
+    # Create and run the pipeline
+    pipeline = GodotRAGPipeline("config.yaml")
+    
+    if pipeline.run_pipeline():
+        print("\n" + "="*60)
+        print("🎯 RAG Pipeline Ready! You can now ask questions about Godot.")
+        print("="*60)
+        
+        # Interactive mode
+        try:
+            while True:
+                question = input("\n💭 Ask a question about Godot (or 'quit' to exit): ").strip()
+                
+                if question.lower() in ['quit', 'exit', 'q']:
+                    print("👋 Goodbye!")
+                    break
+                
+                if question:
+                    pipeline.ask_question(question)
+                else:
+                    print("Please enter a question.")
+                    
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
+    else:
+        print("❌ Pipeline setup failed!")

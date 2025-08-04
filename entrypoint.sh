@@ -9,10 +9,14 @@ until ollama list >/dev/null 2>&1; do
   sleep 1
 done
 
-# Preload models
-echo "Preloading model"
-ollama run llama3
+# Preload models optimized for RAG
+echo "Preloading embedding model for documentation RAG..."
+ollama pull nomic-embed-text
 
+echo "Preloading language model..."
+ollama pull llama3
+
+echo "All models loaded successfully!"
 
 # Keep Ollama in foreground
 wait

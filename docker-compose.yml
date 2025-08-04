@@ -3,17 +3,28 @@ services:
     image: ollama/ollama
     container_name: ollama
     ports:
-      - "11435:11434"
+      - '11435:11434'
     volumes:
       - ollama-data:/root/.ollama
       - ./entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_GPU_LAYERS=${OLLAMA_GPU_LAYERS:--1} # Default to auto GPU layers
+      - OLLAMA_MAX_LOADED_MODELS=3 # Allow multiple models in memory
+      - OLLAMA_NUM_PARALLEL=2 # Allow parallel requests
     deploy:
       resources:
         reservations:
           devices:
             - capabilities: [gpu]
-    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    entrypoint: ['/bin/bash', '/entrypoint.sh']
     restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'timeout', '10', 'ollama', 'list']
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
 
     # Uncomment the following lines if you have NVIDIA GPU support
     # deploy:
@@ -24,6 +35,7 @@ services:
     #           count: 1
     #           capabilities: [gpu]
 
+  # RAG Pipeline Service - optimized for Godot documentation processing
   # app:
   #   build: .
   #   container_name: godot_docs_rag_app
@@ -31,12 +43,22 @@ services:
   #     - '8000:8000'
   #   volumes:
   #     - .:/app
+  #     - ./data:/app/data # Persistent data storage
   #   environment:
   #     - CONFIG_PATH=/app/config.yaml
   #     - OLLAMA_BASE_URL=http://ollama:11434
+  #     - PYTHONPATH=/app
+  #     - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
   #   depends_on:
-  #     - ollama
+  #     ollama:
+  #       condition: service_healthy # Wait for Ollama to be ready
   #   restart: unless-stopped
+  #   command: >
+  #     sh -c "
+  #       echo 'Waiting for models to be ready...' &&
+  #       sleep 30 &&
+  #       python godot_rag_pipeline.py
+  #     "
 
 volumes:
   ollama-data:

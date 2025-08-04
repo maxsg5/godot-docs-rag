@@ -2,61 +2,116 @@
 
 # Document Loading Configuration
 document_loading:
-  method: "unstructured"  # Options: "unstructured", "bs4"
+  method: "bs4"  # Better for structured HTML parsing of documentation
 
 # Embedding Configuration
 embedding:
-  model: "llama3"
-  base_url: "http://ollama:11434"  # Docker service name
+  model: "nomic-embed-text"  # Optimized for code/documentation embedding
+  base_url: "http://localhost:11434"  # Docker service name
   gpu_enabled: true  # Enable GPU acceleration for Ollama
   gpu_layers: -1     # Number of GPU layers (-1 for auto, 0 for CPU only)
-  batch_size: 5      # Further reduced batch size for better performance
+  batch_size: 10     # Increased for better throughput with nomic-embed
   show_progress: true # Show detailed progress during embedding
-  timeout: 300       # Timeout for individual embedding requests (5 minutes)
+  timeout: 600       # Increased timeout for better stability (10 minutes)
+
+# LLM Configuration for Generation
+llm:
+  model: "llama3"  # Language model for generating responses
+  base_url: "http://localhost:11434"  # Same Ollama instance
+  temperature: 0.1  # Low temperature for more consistent, factual responses
+  max_tokens: 1000  # Maximum response length
+  timeout: 120      # Timeout for generation requests (2 minutes)
+
+# Evaluation Configuration
+evaluation:
+  judge_model: "llama3"  # Model used for LLM-as-a-Judge evaluation
+  retrieval_k_values: [1, 3, 5, 10]  # k values for hit rate and precision evaluation
+  sample_size: null  # null for full evaluation, or number for sample
+  save_results: true  # Save evaluation results to JSON file
 
 # Vector Store Configuration
 vector_store:
-  type: "in_memory"  # Options: "in_memory", "chroma", "pinecone"
+  type: "chroma"  # Changed to persistent storage for better performance
   
 # Text Splitting Configuration
 text_splitting:
-  method: "html_semantic"  # Options: "html_header", "html_section", "html_semantic"
+  method: "html_semantic"  # Best for structured Godot documentation
   
-  # Common settings for all splitters
+  # Common settings for all splitters - optimized for Godot docs structure
   headers_to_split_on:
-    - ["h1", "Header 1"]
-    - ["h2", "Header 2"] 
-    - ["h3", "Header 3"]
-    - ["h4", "Header 4"]
-    - ["h5", "Header 5"]
-    - ["h6", "Header 6"]
+    - ["h1", "Class/Tutorial"]
+    - ["h2", "Section"] 
+    - ["h3", "Method/Property"]
+    - ["h4", "Parameter"]
+    - ["h5", "Detail"]
+    - ["h6", "Note"]
   
   # HTMLHeaderTextSplitter specific settings
   html_header:
-    return_each_element: false  # Set to true to return each element separately
+    return_each_element: true  # Better for API documentation structure
     
   # HTMLSectionSplitter specific settings  
   html_section:
     xslt_path: null  # Path to custom XSLT file, null for default
     
-  # HTMLSemanticPreservingSplitter specific settings
+  # HTMLSemanticPreservingSplitter specific settings - optimized for code docs
   html_semantic:
-    max_chunk_size: 2000
-    chunk_overlap: 200
-    separators: ["\n\n", "\n", ". ", "! ", "? "]
+    max_chunk_size: 1500      # Smaller chunks for better retrieval precision
+    chunk_overlap: 300        # Increased overlap for better context preservation
+    separators: ["\n\n", "\n", ". ", "! ", "? ", ": ", ";"]  # Added code-specific separators
     preserve_images: true
     preserve_videos: true
-    elements_to_preserve: ["table", "ul", "ol", "code", "pre"]
-    denylist_tags: ["script", "style", "head", "meta"]
+    elements_to_preserve: ["table", "ul", "ol", "code", "pre", "blockquote", "div.highlight", "div.code-block"]  # Enhanced for Godot docs
+    denylist_tags: ["script", "style", "head", "meta", "nav", "footer", "aside", "form"]  # Expanded to exclude navigation
     
-# Secondary text splitting (for chunk size constraints)
+# Secondary text splitting (for chunk size constraints) - optimized
 secondary_splitting:
   enabled: true
-  chunk_size: 1000
-  chunk_overlap: 100
+  chunk_size: 800           # Smaller for better retrieval granularity
+  chunk_overlap: 150        # Proportional overlap
   
-# Output settings  
+# Output settings - enhanced for better analysis 
 output:
   save_splits: true
   output_directory: "data/processed"
   save_metadata: true
+  save_chunk_stats: true      # Track chunk quality metrics
+  
+# Document Filtering - new section for Godot-specific optimization
+document_filtering:
+  enabled: true
+  
+  # File patterns to prioritize (most important Godot content)
+  high_priority_patterns:
+    - "*/classes/class_*.html"          # API documentation
+    - "*/tutorials/**/*.html"           # Tutorial content
+    - "*/getting_started/**/*.html"     # Getting started guides
+  
+  # File patterns to deprioritize or exclude
+  low_priority_patterns:
+    - "*/genindex.html"                 # Index pages
+    - "*/search.html"                   # Search pages  
+    - "*/_static/**"                    # Static assets
+    - "*/_images/**"                    # Image files
+  
+  # Content filtering rules
+  min_content_length: 100               # Skip very short chunks
+  max_content_length: 4000              # Split very long content
+  skip_navigation: true                 # Remove navigation elements
+  skip_footers: true                    # Remove footer content
+  
+# Retrieval Optimization - new section
+retrieval:
+  # Hybrid search combining dense and sparse retrieval
+  use_hybrid_search: true
+  dense_weight: 0.7                     # Weight for semantic similarity
+  sparse_weight: 0.3                    # Weight for keyword matching
+  
+  # Reranking for better results
+  enable_reranking: true
+  rerank_top_k: 20                      # Rerank top 20 results
+  final_top_k: 5                        # Return top 5 after reranking
+  
+  # Context enhancement
+  include_surrounding_chunks: true       # Include adjacent chunks for context
+  max_surrounding_chunks: 2             # Up to 2 chunks before/after
