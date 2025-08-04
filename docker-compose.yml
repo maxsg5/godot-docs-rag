@@ -50,7 +50,7 @@ services:
     depends_on:
       ollama:
         condition: service_healthy # Wait for Ollama to be ready
-    restart: "no" # Don't restart automatically for one-time evaluation run
+    restart: 'no' # Don't restart automatically for one-time evaluation run
     command: >
       sh -c "
         echo '🚀 Starting Godot RAG Pipeline + Evaluation in Docker...' &&
